@@ -95,7 +95,7 @@ async function benchOpSQLite(): Promise<BenchResult[]> {
     await db.executeWithHostObjects("SELECT * FROM bench");
   }
   results.push({
-    label: "op-sqlite · select 1k×1k (host objects)",
+    label: "op-sqlite · select 1k×1k (HostObjects)",
     ms: performance.now() - t,
   });
 
@@ -307,32 +307,54 @@ export default function HomeScreen() {
       </Text>
       {status !== "done" && <Text style={styles.status}>{status}</Text>}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.list}>
-        {sections.map((section) => (
-          <View key={section.title} style={styles.section}>
-            <View
-              style={[styles.sectionHeader, { borderLeftColor: section.color }]}
-            >
-              <Text style={[styles.sectionTitle, { color: section.color }]}>
-                {section.title}
-              </Text>
+        {(() => {
+          const maxMs = Math.max(
+            ...sections.flatMap((s) => s.results.map((r) => r.ms)),
+            1,
+          );
+          return sections.map((section) => (
+            <View key={section.title} style={styles.section}>
+              <View
+                style={[
+                  styles.sectionHeader,
+                  { borderLeftColor: section.color },
+                ]}
+              >
+                <Text style={[styles.sectionTitle, { color: section.color }]}>
+                  {section.title}
+                </Text>
+              </View>
+              {section.results.map((r) => {
+                const shortLabel = r.label.replace(/^[^·]+· /, "");
+                const pct = r.ms / maxMs;
+                return (
+                  <View key={r.label} style={styles.barRow}>
+                    <View style={styles.barMeta}>
+                      <Text style={styles.label}>{shortLabel}</Text>
+                      <Text style={[styles.ms, { color: section.color }]}>
+                        {r.ms.toFixed(1)} ms
+                      </Text>
+                    </View>
+                    <View style={styles.barTrack}>
+                      <View
+                        style={[
+                          styles.barFill,
+                          {
+                            width: `${pct * 100}%` as `${number}%`,
+                            backgroundColor: section.color,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
             </View>
-            {section.results.map((r) => {
-              const shortLabel = r.label.replace(/^[^·]+· /, "");
-              return (
-                <View key={r.label} style={styles.row}>
-                  <Text style={styles.label}>{shortLabel}</Text>
-                  <Text style={[styles.ms, { color: section.color }]}>
-                    {r.ms.toFixed(1)} ms
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        ))}
+          ));
+        })()}
         <Text style={styles.footnote}>
-          * Host/Hybrid Objects shift some cost to runtime — Functions return
-          faster BUT property access triggers the JSI conversion lazily rather
-          than upfront.
+          * Host/Hybrid Objects shift some cost to runtime — property access
+          triggers the JSI conversion lazily rather than upfront.
         </Text>
       </ScrollView>
     </SafeAreaView>
@@ -346,22 +368,32 @@ const styles = StyleSheet.create({
   status: { fontSize: 14, color: "#f0a500", marginBottom: 12 },
   scroll: { flex: 1 },
   list: { gap: 16, paddingBottom: 40 },
-  section: { gap: 6 },
+  section: { gap: 8 },
   sectionHeader: {
     borderLeftWidth: 3,
     paddingLeft: 10,
     marginBottom: 2,
   },
   sectionTitle: { fontSize: 15, fontWeight: "700", letterSpacing: 0.3 },
-  row: {
+  barRow: {
+    gap: 4,
+  },
+  barMeta: {
     flexDirection: "row",
     justifyContent: "space-between",
-    backgroundColor: "#1c1c1e",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    alignItems: "baseline",
   },
-  label: { color: "#ddd", fontSize: 13, flexShrink: 1, marginRight: 8 },
-  ms: { fontSize: 13, fontWeight: "600", flexShrink: 0 },
+  label: { color: "#ddd", fontSize: 12, flexShrink: 1, marginRight: 8 },
+  ms: { fontSize: 12, fontWeight: "600", flexShrink: 0 },
+  barTrack: {
+    height: 10,
+    backgroundColor: "#1c1c1e",
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  barFill: {
+    height: "100%",
+    borderRadius: 5,
+  },
   footnote: { fontSize: 11, color: "#555", lineHeight: 16, paddingTop: 8 },
 });
