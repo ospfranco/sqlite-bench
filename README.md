@@ -1,56 +1,13 @@
-# Welcome to your Expo app 👋
+# SQLite benchmark
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+This Expo app compares ordinary SQLite operations through op-sqlite, Nitro SQLite, and expo-sqlite. Build a Release app for iOS or Android, open it, and let the default run finish. The screen also offers a normalized run. Use **Share run data and manifest** to save the samples, checksums, failures, and environment details as JSON.
 
-## Get started
+Each workload uses 250 rows and, for read cases, 250 queries per sample. It runs one warmup round followed by three measured rounds. The runner rotates library order for each case and round, waits 2.5 seconds after setup for every sample, and measures only the operation loop or transaction. It checks affected row counts and stored values after writes and consumes and checks all selected values during full reads. A failed check appears on screen and excludes that library and case from the summary. Individual samples, median, and minimum-to-maximum range appear together.
 
-1. Install dependencies
+The HostObjects creation case only obtains results and checks row counts. The separate HostObjects full read checks every `id`, `name`, and `value`. Neither case is presented as equivalent to the other libraries' plain-object full reads. The original screen used 1,000 rows and 1,000 read queries with one pass per library, so its times are not directly comparable to this runner's times.
 
-   ```bash
-   npm install
-   ```
+The default mode leaves SQLite settings at each library's reported defaults. Normalized mode requests WAL journal mode, `synchronous=FULL`, a 2 MiB page cache, and memory temp storage on each benchmark connection, then verifies those PRAGMAs. Expo's exclusive callback transaction creates another connection and begins its transaction before calling the benchmark. Its connection-local settings cannot be established outside the timed section, so that case is visibly omitted from normalized mode; it remains available in default mode. The modes use separate database files because WAL is persistent. The exported manifest includes the exact run policy, Release or development mode, device and OS, JavaScript engine, React Native and package versions, SQLite version and source ID, compile options, and actual PRAGMAs for the benchmark connection. Matching source IDs cannot establish whether two libraries share one native engine. Keep runs from different modes and builds separate when comparing results.
 
-2. Start the app
+The additional read cases compare ordinary and reusable prepared statements using identical SQL and bound values. Full reads consume every field of every row; indexed point reads consume one checked row per query and expose the cost of small calls. Each has synchronous and asynchronous variants. The insert cases compare ordinary and prepared calls inside an explicit `BEGIN`/`COMMIT` transaction, separate from the callback transaction case. op-sqlite and Nitro SQLite also run one asynchronous native batch; expo-sqlite has no equivalent parameter batch API and appears as unsupported. These cases use the same seeded values and the selected run mode's durability settings.
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Statement creation and input-array construction happen before the timer. Each timed prepared execution includes binding and result consumption, and teardown releases the statement through the library's supported lifecycle. Nitro SQLite and expo-sqlite expose explicit finalization; op-sqlite does not, so the adapter drops its statement reference after the case. The batch case checks affected rows when the library reports them and always verifies the stored row count and checksum. The explicit transaction cases roll back on error. Compare only cases with the same query shape, dispatch mode, and transaction label; no result here measures a proposed queue or worker change.
